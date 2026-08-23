@@ -1,0 +1,56 @@
+Project: Rugged Off-Grid Portable Computer (“Cyberdeck”)
+Purpose: Offline access to Wikipedia, first aid guides, survival manuals, and maps while hiking and camping. No internet required. Must survive field use in a rugged waterproof case.
+Deadline: Live demo April 20, 2027. Grade 12 capstone project.
+
+Core Computer
+	•	Raspberry Pi 5 8GB
+	•	Raspberry Pi 5 Active Cooler (required, non-negotiable in enclosed case)
+	•	128GB A2 microSD for OS only
+	•	Crucial X9 1TB USB 3.2 external SSD for all data storage (Wikipedia, maps, survival guides)
+Display
+	•	Elecrow 10.1 inch IPS 1280x800 touchscreen
+	•	Connects via HDMI for video and USB for touch input
+	•	Intended to mount in the lid of the Pelican case
+Input
+	•	Logitech K400 Plus wireless keyboard with built-in trackpad
+	•	Sits in the base of the case when closed
+Case
+	•	Pelican 1500 Protector Case
+	•	Interior dimensions: 16.75” x 11.18” x 6.12” deep
+	•	Fully sealed and waterproof
+	•	Internal layout split into three zones: battery left, Pi and cooler center, power electronics right
+	•	Screen mounts in lid
+	•	All internal mounts and brackets will be 3D printed and designed in Fusion 360 before any printing begins
+Power System
+	•	Venom VEN15187 LiPo battery, 11.1V 3S, 10500mAh, 50C, EC5 connector
+	•	Estimated runtime approximately 6-7 hours at 15W average draw
+	•	EC5 to XT60 adapter to interface battery with power system
+	•	DROK step-down buck converter, 9-36V input, 5V 5A output, converts battery voltage to stable 5V for Pi
+	•	Circuit order: battery → toggle switch → inline fuse (5-7.5A ATC blade fuse) → buck converter → Pi
+	•	18 AWG silicone stranded wire for all power lines
+	•	22 AWG silicone stranded wire for GPIO and signal lines only
+	•	Heat shrink tubing on every soldered joint
+	•	Panel mount toggle switch on exterior of case for master power on/off
+	•	LiPo charged using iMAX B6 balance charger, opening case to access battery directly for now
+	•	LiPo stored in fireproof LiPo safe bag
+USB and Connectivity
+	•	UGREEN 7-port powered USB hub, 5 USB-A and 2 USB-C ports
+	•	Handles keyboard dongle, SSD, touchscreen touch input, and any additional peripherals
+Mounting Hardware
+	•	LuKaiSen 860 piece M2-M5 screw, nut, and washer kit for general brackets and structural mounts
+	•	Separate M2.5 specific kit for Raspberry Pi board mounting (Pi uses M2.5 mounting holes)
+	•	LuKaiSen 180 piece brass heat set insert kit covering M2 through M5 for all 3D printed bracket connections
+	•	All brackets designed in Fusion 360 before printing
+Cooling
+	•	Active cooler on Pi
+	•	Case requires intake and exhaust vents, exact placement to be determined in Fusion 360 layout
+	•	Pi positioned in center zone with airflow clearance on both sides
+Optional / Deferred
+	•	ESP32 Marauder via USB only, not permanently integrated in version 1
+	•	XT60 panel mount external charging port, deferred until external charging proves necessary
+Software Plan
+	•	Offline Wikipedia dump
+	•	Offline maps
+	•	First aid and survival guides
+	•	RAG-based local AI search assistant for quickly finding relevant information in stored documents during emergencies, architecture to be designed in September 2026
+Total Cost : Approximately $1,200 CAD
