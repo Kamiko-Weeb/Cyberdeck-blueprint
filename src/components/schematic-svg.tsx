@@ -291,7 +291,7 @@ export function SchematicSvg({ selected, onSelect, flow }: Props) {
       className="block h-auto w-full min-w-[56rem] select-none md:min-w-0"
       preserveAspectRatio="xMidYMin meet"
       role="img"
-      aria-label="FIELD DECK wiring schematic. Click a block for details."
+      aria-label="Cyberdeck wiring schematic. Click a block for details."
       onClick={() => onSelect(null)}
     >
       <rect width="1440" height="780" className="fill-surface" />
@@ -565,7 +565,7 @@ export function SchematicSvg({ selected, onSelect, flow }: Props) {
           className="fill-fg"
           style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 600, letterSpacing: "0.08em" }}
         >
-          FIELD DECK
+          CYBERDECK
         </text>
         <text x={16} y={78} className="fill-muted" style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>
           DWG 1500-PWR-001  ·  REV A  ·  PELICAN 1500

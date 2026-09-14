@@ -58,7 +58,7 @@ export function DeckApp() {
                 Pelican 1500  ·  Grade 12 capstone  ·  20 Apr 2027
               </p>
               <h1 className="mt-1 font-display text-4xl font-semibold tracking-[0.12em] text-fg">
-                FIELD DECK
+                CYBERDECK
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
                 Pack → switch → fuse → buck → Pi. HDMI to the lid. USB through a self-powered hub.
