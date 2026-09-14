@@ -43,7 +43,7 @@ export function PartsList({
         </div>
         <p className="mt-4 text-sm text-muted">
           Pack energy 116.5 Wh. At 15 W and ~90% buck efficiency that is about 7 hours; 80% usable
-          LiPo capacity lands on the specified 6–7 hours.
+          LiPo capacity lands on roughly 4–5 hours with the 15.6-inch panel.
         </p>
       </section>
 

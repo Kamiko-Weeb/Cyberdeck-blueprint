@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Box, List, Shield, Workflow, X } from "lucide-react";
+import { Activity, Box, Boxes, List, Shield, Workflow, X } from "lucide-react";
 import { NODES, type NodeId } from "@/lib/deck";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -66,7 +66,7 @@ export function DeckApp() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-sm bg-elevated px-3 py-2 font-display text-xs uppercase tracking-[0.16em] text-muted shadow-[var(--shadow-border)]">
-                15 W  ·  6–7 h  ·  18 AWG
+                18 W  ·  4–5 h  ·  18 AWG
               </span>
               <Button
                 variant="secondary"
@@ -99,6 +99,13 @@ export function DeckApp() {
                 </button>
               );
             })}
+            <a
+              href="/3d.html"
+              className="inline-flex h-11 items-center gap-2 rounded-sm px-3.5 font-display text-sm font-semibold uppercase tracking-[0.14em] text-muted transition-[background-color,color] duration-150 hover:bg-elevated hover:text-fg"
+            >
+              <Boxes className="size-4" />
+              3D Layout
+            </a>
           </nav>
         </div>
       </header>

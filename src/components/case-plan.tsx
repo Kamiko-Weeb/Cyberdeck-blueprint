@@ -1,16 +1,168 @@
 import { CASE_ZONES, type NodeId } from "@/lib/deck";
 import { cn } from "@/lib/utils";
 
-const HOTSPOTS: { id: NodeId; x: number; y: number; w: number; h: number; label: string }[] = [
-  { id: "bag", x: 28, y: 118, w: 150, h: 210, label: "LIPO + BAG" },
-  { id: "pi", x: 198, y: 128, w: 210, h: 168, label: "PI 5 + COOLER" },
-  { id: "buck", x: 428, y: 118, w: 120, h: 90, label: "BUCK" },
-  { id: "fuse", x: 560, y: 118, w: 70, h: 70, label: "FUSE" },
-  { id: "hub", x: 428, y: 220, w: 202, h: 108, label: "HUB + SSD" },
-  { id: "keyboard", x: 80, y: 348, w: 520, h: 70, label: "K400 PARK" },
-  { id: "display", x: 120, y: 28, w: 460, h: 64, label: "LID · 10.1\" PANEL" },
-  { id: "switch", x: 640, y: 200, w: 36, h: 70, label: "SW" },
+// Plan geometry comes from the same millimetre layout as the 3D view at
+// /3d.html, so the two cannot drift. Interior 435 x 292.6 mm and depths of
+// 109.2 / 45.5 are from Pelican drawings 1500-CASE-TOP and 1500-CASE-BOT.
+// Scale is 1 px per mm.
+const W = 435;
+const H = 292.6;
+const X0 = 130;
+const LID_Y = 96;
+const BASE_Y = 476;
+const SHELL = 18; // outer shell drawn as an offset, not to scale
+const DRAFT = 4; // 2 degrees over 109 mm of depth
+
+type Spot = {
+  id: NodeId;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  sub?: string;
+  labelAbove?: boolean;
+};
+
+// px = X0 + (x_mm + 217.5)   |   py = BASE_Y + (z_mm + 146.3)
+const BASE_SPOTS: Spot[] = [
+  { id: "bag", x: 140, y: 488.8, w: 165, h: 47, label: "LIPO + BAG" },
+  { id: "pi", x: 315, y: 494.3, w: 85, h: 56, label: "PI 5", sub: "+ cooler + NVMe HAT" },
+  { id: "buck", x: 435, y: 479.8, w: 65, h: 45, label: "BUCK" },
+  { id: "switch", x: 517.5, y: 476.3, w: 40, h: 22, label: "SW + FUSE", labelAbove: true },
+  { id: "hub", x: 417.5, y: 539.8, w: 120, h: 45, label: "USB HUB" },
+  { id: "keyboard", x: 170.5, y: 627.6, w: 354, h: 141, label: "K400 PARK" },
 ];
+
+const LID_SPOTS: Spot[] = [
+  { id: "display", x: 167.5, y: 127.3, w: 360, h: 230, label: "CROWVI 15.6 IN PANEL" },
+];
+
+// Five moulded bosses dimensioned on the Pelican lid drawing, offset from the
+// interior corner. Verify against the physical case before drilling anything.
+const BOSSES: [number, number][] = [
+  [51.6, 27.4],
+  [331.5, 27.4],
+  [165.9, 118.9],
+  [51.6, 237.5],
+  [331.5, 237.5],
+];
+
+const dsp = (size: number, track = "0.12em") => ({
+  fontFamily: "var(--font-display)",
+  fontSize: size,
+  letterSpacing: track,
+});
+
+const small = { fontFamily: "var(--font-sans)", fontSize: 10 } as const;
+
+function Plan({
+  y,
+  title,
+  depth,
+  spots,
+  selected,
+  onSelect,
+  showFloor,
+  showBosses,
+}: {
+  y: number;
+  title: string;
+  depth: string;
+  spots: Spot[];
+  selected: NodeId | null;
+  onSelect: (id: NodeId | null) => void;
+  showFloor?: boolean;
+  showBosses?: boolean;
+}) {
+  return (
+    <g>
+      <text
+        x={X0 + W / 2}
+        y={y - SHELL - 14}
+        textAnchor="middle"
+        className="fill-fg"
+        style={dsp(13, "0.18em")}
+      >
+        {title} · {depth}
+      </text>
+
+      <rect
+        x={X0 - SHELL}
+        y={y - SHELL}
+        width={W + SHELL * 2}
+        height={H + SHELL * 2}
+        rx={22}
+        className="fill-elevated stroke-border"
+        strokeWidth={2}
+      />
+      <rect x={X0} y={y} width={W} height={H} rx={10} className="fill-bg stroke-subtle" strokeWidth={1.4} />
+
+      {showFloor && (
+        <rect
+          x={X0 + DRAFT}
+          y={y + DRAFT}
+          width={W - DRAFT * 2}
+          height={H - DRAFT * 2}
+          rx={8}
+          fill="none"
+          strokeDasharray="5 5"
+          className="stroke-border"
+          strokeWidth={1}
+        />
+      )}
+
+      {showBosses &&
+        BOSSES.map(([bx, bz], i) => (
+          <g key={i}>
+            <circle cx={X0 + bx} cy={y + bz} r={4} fill="none" className="stroke-ok" strokeWidth={1.2} />
+            <circle cx={X0 + bx} cy={y + bz} r={1.4} className="fill-ok" />
+          </g>
+        ))}
+
+      {spots.map((s) => {
+        const on = selected === s.id;
+        return (
+          <g
+            key={s.id}
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(s.id);
+            }}
+          >
+            <rect
+              x={s.x}
+              y={s.y}
+              width={s.w}
+              height={s.h}
+              rx={7}
+              className={cn(
+                "fill-elevated stroke-border transition-[stroke,fill] duration-150",
+                on && "fill-accent/15 stroke-accent",
+              )}
+              strokeWidth={on ? 2 : 1}
+            />
+            <text
+              x={s.labelAbove ? s.x + s.w / 2 : s.x + 9}
+              y={s.labelAbove ? s.y - 7 : s.y + 17}
+              textAnchor={s.labelAbove ? "middle" : "start"}
+              className={on ? "fill-accent" : "fill-muted"}
+              style={dsp(11, "0.1em")}
+            >
+              {s.label}
+            </text>
+            {s.sub && (
+              <text x={s.x} y={s.y + s.h + 13} className="fill-subtle" style={small}>
+                {s.sub}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
 
 export function CasePlan({
   selected,
@@ -23,109 +175,95 @@ export function CasePlan({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
       <div className="overflow-x-auto rounded-lg bg-surface p-3 shadow-[var(--shadow-border)] sm:p-5">
         <svg
-          viewBox="0 0 700 460"
-          className="h-auto w-full min-w-[28rem]"
+          viewBox="0 0 700 830"
+          className="h-auto w-full min-w-[26rem]"
           role="img"
-          aria-label="Pelican 1500 interior layout. Click a zone."
+          aria-label="Pelican 1500 lid and base plans, to scale. Click a zone."
           onClick={() => onSelect(null)}
         >
-          <rect width="700" height="460" className="fill-surface" />
-          <rect x="16" y="16" width="668" height="428" rx="28" className="fill-elevated stroke-border" strokeWidth={2} />
-          <rect x="28" y="28" width="644" height="404" rx="18" className="fill-bg stroke-border" strokeWidth={1} />
+          <rect width="700" height="830" className="fill-surface" />
 
-          <text
-            x={44}
-            y={52}
-            className="fill-subtle"
-            style={{ fontFamily: "var(--font-display)", fontSize: 12, letterSpacing: "0.2em" }}
-          >
-            PELICAN 1500  ·  16.75" × 11.18" × 6.12"
+          <text x={22} y={26} className="fill-fg" style={dsp(13, "0.2em")}>
+            PELICAN 1500 · INTERIOR PLANS · 1 px = 1 mm
+          </text>
+          <text x={22} y={42} className="fill-subtle" style={small}>
+            Opening 435 × 292.6 mm. Wall thickness indicative, not to scale.
           </text>
 
-          {HOTSPOTS.map((h) => {
-            const on = selected === h.id;
-            return (
-              <g
-                key={h.id}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(h.id);
-                }}
-              >
-                <rect
-                  x={h.x}
-                  y={h.y}
-                  width={h.w}
-                  height={h.h}
-                  rx={10}
-                  className={cn(
-                    "stroke-border fill-elevated/80 transition-[stroke,fill] duration-150",
-                    on && "fill-accent/15 stroke-accent",
-                  )}
-                  strokeWidth={on ? 2 : 1}
-                />
-                <text
-                  x={h.x + 12}
-                  y={h.y + 22}
-                  className={on ? "fill-accent" : "fill-muted"}
-                  style={{ fontFamily: "var(--font-display)", fontSize: 13, letterSpacing: "0.12em" }}
-                >
-                  {h.label}
-                </text>
-              </g>
-            );
-          })}
+          <Plan
+            y={LID_Y}
+            title="LID"
+            depth="45.5 mm DEEP"
+            spots={LID_SPOTS}
+            selected={selected}
+            onSelect={onSelect}
+            showBosses
+          />
 
-          <text
-            x={44}
-            y={108}
-            className="fill-subtle"
-            style={{ fontFamily: "var(--font-display)", fontSize: 11, letterSpacing: "0.18em" }}
-          >
-            LEFT
-          </text>
-          <text
-            x={250}
-            y={118}
-            className="fill-subtle"
-            style={{ fontFamily: "var(--font-display)", fontSize: 11, letterSpacing: "0.18em" }}
-          >
-            CENTER · AIRFLOW
-          </text>
-          <text
-            x={448}
-            y={108}
-            className="fill-subtle"
-            style={{ fontFamily: "var(--font-display)", fontSize: 11, letterSpacing: "0.18em" }}
-          >
-            RIGHT
+          <Plan
+            y={BASE_Y}
+            title="BASE"
+            depth="109.2 mm DEEP"
+            spots={BASE_SPOTS}
+            selected={selected}
+            onSelect={onSelect}
+            showFloor
+          />
+
+          <line x1={78} y1={LID_Y - 6} x2={X0 - SHELL} y2={LID_Y - 6} className="stroke-border" strokeWidth={1} />
+          <text x={20} y={LID_Y - 9} className="fill-subtle" style={small}>
+            OUTER SHELL
           </text>
 
-          <path d="M198 200 H198" />
-          <text
-            x={210}
-            y={320}
-            className="fill-ok"
-            style={{ fontFamily: "var(--font-display)", fontSize: 11, letterSpacing: "0.14em" }}
-          >
-            INTAKE →
+          <line x1={92} y1={LID_Y + 46} x2={X0} y2={LID_Y + 46} className="stroke-border" strokeWidth={1} />
+          <text x={20} y={LID_Y + 43} className="fill-subtle" style={small}>
+            INNER WALL
+          </text>
+
+          <line x1={578} y1={LID_Y + 119} x2={604} y2={LID_Y + 119} className="stroke-ok" strokeWidth={1} />
+          <text x={608} y={LID_Y + 116} className="fill-ok" style={small}>
+            5× LID BOSS
+          </text>
+          <text x={608} y={LID_Y + 129} className="fill-subtle" style={small}>
+            verify on case
+          </text>
+
+          <line x1={92} y1={BASE_Y + 70} x2={X0 + DRAFT} y2={BASE_Y + 70} className="stroke-border" strokeWidth={1} />
+          <text x={20} y={BASE_Y + 60} className="fill-subtle" style={small}>
+            FLOOR
+          </text>
+          <text x={20} y={BASE_Y + 73} className="fill-subtle" style={small}>
+            2° draft
+          </text>
+          <text x={20} y={BASE_Y + 86} className="fill-subtle" style={small}>
+            ≈427 × 285
+          </text>
+
+          <text x={X0 + W / 2} y={BASE_Y - SHELL - 6} textAnchor="middle" className="fill-subtle" style={dsp(10, "0.16em")}>
+            HINGE EDGE
           </text>
           <text
-            x={330}
-            y={320}
-            className="fill-ok"
-            style={{ fontFamily: "var(--font-display)", fontSize: 11, letterSpacing: "0.14em" }}
-          >
-            ← EXHAUST
-          </text>
-          <text
-            x={210}
-            y={336}
+            x={X0 + W / 2}
+            y={BASE_Y + H + SHELL + 16}
+            textAnchor="middle"
             className="fill-subtle"
-            style={{ fontFamily: "var(--font-sans)", fontSize: 10 }}
+            style={dsp(10, "0.16em")}
           >
-            Exact vent holes land in Fusion 360. Do not skip them.
+            FRONT · LATCHES · HANDLE
+          </text>
+
+          <text x={315} y={571} className="fill-ok" style={dsp(10, "0.14em")}>
+            ↑ FAN EXHAUST
+          </text>
+          <text x={315} y={585} className="fill-subtle" style={small}>
+            Keep clear above the cooler.
+          </text>
+          <text x={315} y={599} className="fill-subtle" style={small}>
+            Vent holes land in Fusion 360.
+          </text>
+
+          <text x={X0 + W / 2} y={806} textAnchor="middle" className="fill-subtle" style={small}>
+            Keyboard takes the front 141 mm, leaving ~150 mm at the back for everything else.
           </text>
         </svg>
       </div>

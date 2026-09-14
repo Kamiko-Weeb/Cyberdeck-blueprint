@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIELD DECK — 3D Layout</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #0c0d0b;
+        --surface: #141612;
+        --elevated: #1b1d18;
+        --fg: #eceae3;
+        --muted: #9a9b8e;
+        --subtle: #6e6f64;
+        --border: #2a2c26;
+        --accent: #d5d8ce;
+        --danger: #c45c4a;
+        --warn: #b8956a;
+        --ok: #7d9b82;
+        --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+        --sans: "IBM Plex Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--sans);
+        overflow: hidden;
+      }
+      #app { height: 100vh; width: 100vw; }
+      #stage { position: relative; width: 100%; height: 100%; }
+      canvas { display: block; }
+
+      .back {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        text-decoration: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 2px;
+      }
+      .back:hover { color: var(--accent); }
+
+      .controls {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button.ctl {
+        font-family: var(--sans);
+        font-size: 12px;
+        color: var(--fg);
+        background: var(--elevated);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 7px 11px;
+        cursor: pointer;
+      }
+      button.ctl:hover { border-color: var(--subtle); }
+      button.ctl[aria-pressed="true"] {
+        background: var(--accent);
+        color: #0c0d0b;
+        border-color: var(--accent);
+      }
+
+      .sect {
+        padding: 12px 18px 6px;
+        font-family: var(--display);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--subtle);
+      }
+      .item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 9px 18px;
+        cursor: pointer;
+        border-left: 2px solid transparent;
+      }
+      .item:hover { background: var(--elevated); }
+      .item.on {
+        background: var(--elevated);
+        border-left-color: var(--accent);
+      }
+      .swatch {
+        width: 11px; height: 11px;
+        border-radius: 2px;
+        margin-top: 3px;
+        flex-shrink: 0;
+      }
+      .item .nm { font-size: 13px; font-weight: 500; }
+      .item .dim { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+      #info {
+        border-top: 1px solid var(--border);
+        padding: 14px 18px;
+        min-height: 116px;
+        background: var(--elevated);
+      }
+      #info h2 {
+        font-family: var(--display);
+        font-size: 17px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      #info .meta { font-size: 11px; color: var(--subtle); margin-top: 3px; }
+      #info p { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+      .est {
+        display: inline-block;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--warn);
+        border: 1px solid var(--warn);
+        border-radius: 3px;
+        padding: 1px 5px;
+        margin-left: 6px;
+        vertical-align: 2px;
+      }
+
+      .tag {
+        position: absolute;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg);
+        background: rgba(12, 13, 11, 0.82);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 2px 6px;
+        pointer-events: none;
+        white-space: nowrap;
+        transform: translate(-50%, -50%);
+      }
+
+      #backbtn {
+        position: absolute;
+        left: 16px;
+        top: 16px;
+        z-index: 5;
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--fg);
+        background: rgba(20, 22, 18, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 9px 14px;
+        text-decoration: none;
+      }
+      #backbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+      #menu { position: absolute; right: 16px; top: 16px; z-index: 6; }
+      #menu-btn {
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--fg);
+        background: rgba(20, 22, 18, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+      #menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+      #menu-btn[aria-expanded="true"] { border-color: var(--accent); }
+      #caret { display: inline-block; margin-left: 4px; transition: transform 0.15s; }
+      #menu-btn[aria-expanded="true"] #caret { transform: rotate(180deg); }
+
+      #menu-panel {
+        position: absolute;
+        right: 0;
+        top: 46px;
+        width: 258px;
+        background: rgba(20, 22, 18, 0.97);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px;
+        max-height: calc(100vh - 90px);
+        overflow-y: auto;
+        display: none;
+      }
+      #menu-panel.open { display: block; }
+      .grp {
+        padding: 9px 10px 4px;
+        font-family: var(--display);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--subtle);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .row:hover { background: var(--elevated); }
+      .row.disabled { opacity: 0.35; pointer-events: none; }
+      .row .lbl { font-size: 12.5px; }
+      .row .sub { font-size: 11px; color: var(--subtle); margin-top: 2px; line-height: 1.35; }
+      .sw {
+        width: 36px; height: 20px;
+        border-radius: 10px;
+        background: var(--border);
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.15s;
+      }
+      .sw::after {
+        content: "";
+        position: absolute;
+        left: 2px; top: 2px;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: var(--subtle);
+        transition: transform 0.15s, background 0.15s;
+      }
+      .sw.on { background: var(--accent); }
+      .sw.on::after { transform: translateX(16px); background: #0c0d0b; }
+
+      #legend {
+        position: absolute;
+        right: 16px;
+        bottom: 14px;
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        padding: 10px 12px;
+        background: rgba(20, 22, 18, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        font-size: 11px;
+        color: var(--muted);
+        pointer-events: none;
+      }
+      #legend span { display: flex; align-items: center; gap: 7px; }
+      #legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+      #card {
+        position: absolute;
+        left: 16px;
+        bottom: 44px;
+        width: 340px;
+        max-height: calc(100% - 130px);
+        overflow-y: auto;
+        background: rgba(20, 22, 18, 0.96);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 16px 18px 18px;
+        z-index: 5;
+      }
+      #card[hidden] { display: none; }
+      #card-x {
+        position: absolute;
+        right: 10px; top: 10px;
+        width: 24px; height: 24px;
+        line-height: 1;
+        font-size: 17px;
+        color: var(--subtle);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #card-x:hover { color: var(--fg); border-color: var(--border); }
+      #c-name {
+        font-family: var(--display);
+        font-size: 19px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding-right: 26px;
+      }
+      #c-meta { font-size: 11px; color: var(--subtle); margin-top: 3px; }
+      #c-body h3 {
+        font-family: var(--display);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-top: 14px;
+      }
+      #c-body p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
+
+      .chip { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+      .row.partrow.on { background: var(--elevated); }
+      .row.partrow.on .lbl { color: var(--accent); }
+      .est {
+        display: inline-block;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--warn);
+        border: 1px solid var(--warn);
+        border-radius: 3px;
+        padding: 1px 5px;
+        margin-left: 6px;
+        vertical-align: 3px;
+      }
+
+      #viewcube {
+        position: absolute;
+        right: 16px;
+        top: 64px;
+        width: 100px;
+        height: 100px;
+        z-index: 6;
+        cursor: pointer;
+      }
+      @media (max-width: 860px) { #viewcube { width: 76px; height: 76px; } }
+
+      #loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-family: var(--display);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        font-size: 13px;
+      }
+      #hint {
+        position: absolute;
+        left: 16px;
+        bottom: 14px;
+        font-size: 11px;
+        color: var(--subtle);
+        pointer-events: none;
+      }
+
+      @media (max-width: 860px) {
+        #card { left: 12px; right: 12px; width: auto; bottom: 40px; }
+        #legend { bottom: 40px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <div id="loading">Loading case model</div>
+        <a id="backbtn" href="/">← Back to blueprint</a>
+        <canvas id="viewcube" width="200" height="200" title="Click a face, edge or corner"></canvas>
+        <div id="menu">
+          <button id="menu-btn" aria-expanded="false">Controls <span id="caret">▾</span></button>
+          <div id="menu-panel" role="menu"></div>
+        </div>
+        <div id="legend">
+          <span><i style="background:#c45c4a"></i>Battery +</span>
+          <span><i style="background:#6e6f64"></i>Ground</span>
+          <span><i style="background:#b8956a"></i>5V regulated</span>
+          <span><i style="background:#7d9b82"></i>Data / video</span>
+        </div>
+        <div id="card" hidden>
+          <button id="card-x" aria-label="Close">×</button>
+          <h2 id="c-name"></h2>
+          <div id="c-meta"></div>
+          <div id="c-body"></div>
+        </div>
+        <div id="hint">Drag to orbit · scroll to zoom · click a part</div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+      // ---- Case reference geometry, millimetres -------------------------
+      // Exterior from the supplied Pelican STEP model: 467 x 171 x 357.
+      // Interior from Pelican drawings 1500-CASE-TOP / 1500-CASE-BOT:
+      //   opening 435 x 292.6, base 109.2 deep, lid 45.5 deep (154.7 total).
+      // Walls carry 2 degrees of draft, so the base floor is roughly
+      // 427 x 285 — about 3.8mm tighter per side than the opening.
+      const IN_X = 435;
+      const IN_Z = 292.6;
+      const BASE_D = 109.2;
+      const LID_D = 45.5;
+      const HINGE_Z = -177;      // hinge runs along the back edge
+      const FLOOR_Y = -BASE_D;   // base interior floor, parting line at y = 0
+      const LID_INNER_Y = LID_D; // inside face of the closed lid
+
+      // ---- Components ---------------------------------------------------
+      // size: [x, y, z] in mm. pos: centre point in mm.
+      // "in": "base" sits in the tub, "lid" rides with the lid.
+      const PARTS = [
+        {
+          id: "battery",
+          desc: [{"h": "What it does", "t": "The only power source in the build. Everything from the Pi to the screen runs off this pack, so its capacity sets your real off-grid runtime."}, {"h": "How it works", "t": "Three lithium-polymer cells wired in series. Each sits around 3.7V nominal, giving 11.1V, but the pack actually swings from about 12.6V charged down to 9.9V empty. That sag is the whole reason a regulator sits between it and the Pi rather than a direct connection."}, {"h": "Why it is here", "t": "At roughly 700g it is the heaviest single item, so it goes low and against the left wall to keep the case balanced when carried. It lives inside a LiPo bag, and it is never charged through the buck converter."}],
+          name: "Venom 3S LiPo",
+          color: "#c45c4a",
+          size: [165, 25, 47],
+          pos: [-125, FLOOR_Y + 12.5, -110],
+          in: "base",
+          est: true,
+          spec: "11.1V · 10500mAh · 116Wh",
+          note: "Left zone, inside a LiPo bag. Heaviest single item, so keep it low and against the wall or the case will feel unbalanced when carried.",
+        },
+        {
+          id: "pi",
+          model: { url: "/models/pi.glb", yFrom: 0, standoff: 6, color: 0x2c6b45 },
+          desc: [{"h": "What it does", "t": "The computer. Runs the operating system and serves the offline Wikipedia, maps and first aid references."}, {"h": "How it works", "t": "A quad-core Arm board that wants a stable 5V and can pull several amps under load, which is what sizes the converter. The Active Cooler is a heatsink and fan that clips onto the board and is driven straight off the Pi's fan header, spinning up as the die temperature climbs."}, {"h": "Why it is here", "t": "Centre zone, on M2.5 standoffs. The Pi 5's mounting holes are 2.5mm, not the M3 most kits ship with. The fan exhausts upward, so nothing solid can sit directly on top of it."}],
+          name: "Raspberry Pi 5",
+          color: "#7d9b82",
+          size: [85, 21, 56],
+          pos: [10, FLOOR_Y + 6 + 10.5, -100],
+          in: "base",
+          est: false,
+          spec: "85 × 56mm board · ~30mm tall with cooler",
+          note: "Centre zone on M2.5 standoffs. The cooler exhausts upward, so nothing solid goes directly above it.",
+        },
+        {
+          id: "cooler",
+          name: "Active Cooler",
+          color: "#9aa0a6",
+          size: [65, 10, 44],
+          pos: [10, FLOOR_Y + 6 + 1.6 + 5, -100],
+          in: "base",
+          est: false,
+          model: { url: "/models/cooler.glb", yFrom: -7.0, standoff: 6 + 1.6, color: 0x9aa0a6 },
+          spec: "Heatsink and fan, clips to the Pi 5",
+          desc: [
+            { h: "What it does", t: "Keeps the Pi 5 off its thermal limit. Without it the board throttles under sustained load, which is exactly what serving Wikipedia and rendering maps looks like." },
+            { h: "How it works", t: "An aluminium fin stack bolted through the Pi's two mounting holes, with a blower driven from the board's fan header. The Pi reads its own die temperature and ramps the fan, so there is no separate control or power tap." },
+            { h: "Why it is here", t: "It sits directly on the board over the SoC and rises about 10mm above it, still shorter than the Ethernet and USB connectors. The fan draws in from above and exhausts sideways through the fins, so the space over it has to stay clear." },
+          ],
+          note: "Do not bury this in foam. It is the one component whose whole job is moving air.",
+        },
+        {
+          id: "nvme",
+          desc: [{"h": "What it does", "t": "Storage. Holds the OS plus the offline payload: Wikipedia with images runs around 110GB through Kiwix, then maps, manuals and references on top."}, {"h": "How it works", "t": "The HAT breaks out the Pi 5's single PCIe lane to an M.2 slot. That lane is Gen2 x1, roughly 450 to 500MB/s, so the drive's rated 6000MB/s is far beyond what the bus can carry. The Pi boots directly off it, which is why there is no microSD in the build any more."}, {"h": "Why it is here", "t": "An internal drive is more rugged than an external USB SSD: no cable to shake loose, no separate box rattling around. Watch the form factor though, the NV3 is 2280 and the official Pi HAT+ only takes 2230 or 2242."}],
+          name: "M.2 HAT + Kingston NV3",
+          color: "#7d9b82",
+          size: [65, 10, 56],
+          pos: [10, FLOOR_Y + 40, -100],
+          in: "base",
+          est: true,
+          spec: "2280 drive on a PCIe HAT",
+          note: "Stacks over the Pi. Check whether your HAT mounts above or below the board — below is better here, it keeps the cooler clear.",
+        },
+        {
+          id: "buck",
+          desc: [{"h": "What it does", "t": "Turns the battery's moving 9 to 12.6V into a steady 5V the Pi can actually use."}, {"h": "How it works", "t": "A switching step-down regulator. It chops the input on and off at high frequency and filters the result back into a lower average voltage, which is far more efficient than a linear regulator that would burn the difference off as heat. Step-down rather than step-up because the pack sits above 5V for its entire discharge curve."}, {"h": "Why it is here", "t": "Right zone with the rest of the power electronics. It runs warm under load, so it needs air around it rather than being buried against foam."}],
+          name: "DROK buck converter",
+          color: "#b8956a",
+          size: [65, 25, 45],
+          pos: [120, FLOOR_Y + 12.5, -120],
+          in: "base",
+          est: true,
+          spec: "9-36V in → 5V out",
+          note: "Right zone with the rest of the power electronics. Gets warm under load, so leave air around it.",
+        },
+        {
+          id: "hub",
+          desc: [{"h": "What it does", "t": "Expands the Pi's USB ports and supplies power to whatever is plugged in."}, {"h": "How it works", "t": "Being a powered hub, it draws from the 5V rail instead of stealing from the Pi's limited USB current budget. That matters here because the touchscreen can ask for close to 2A on its own."}, {"h": "Why it is here", "t": "It is the longest item in the right zone, and its footprint is the reason storage moved onto the Pi instead of sitting beside it as an external drive."}],
+          name: "UGREEN 7-port USB hub",
+          color: "#b8956a",
+          size: [120, 25, 45],
+          pos: [130, FLOOR_Y + 12.5, -60],
+          in: "base",
+          est: true,
+          spec: "5 × USB-A, 2 × USB-C",
+          note: "Right zone. Longest item in that corner, which is why the SSD moved onto the Pi instead of sitting here.",
+        },
+        {
+          id: "switch",
+          desc: [{"h": "What it does", "t": "Master power cut, plus overcurrent protection for the whole deck."}, {"h": "How it works", "t": "Both sit on the positive line only; ground runs straight through untouched. The fuse opens if current climbs past its rating, protecting the wiring and the pack in a short. Order matters and does not change: battery, switch, fuse, converter, Pi."}, {"h": "Why it is here", "t": "Near the right wall so it could later reach a panel mount, if you ever decide to breach the case. Until then everything stays sealed."}],
+          name: "Switch + inline fuse",
+          color: "#b8956a",
+          size: [40, 22, 22],
+          pos: [190, FLOOR_Y + 11, -135],
+          in: "base",
+          est: true,
+          spec: "Positive line only",
+          note: "Battery → switch → fuse → converter → Pi. Ground runs straight through, untouched.",
+        },
+        {
+          id: "keyboard",
+          model: { url: "/models/kbd.glb", yFrom: -10, standoff: 0, color: 0x4a4d46 },
+          desc: [{"h": "What it does", "t": "Keyboard and trackpad in one unit, the main input when the touchscreen is not enough."}, {"h": "How it works", "t": "Talks over a 2.4GHz USB receiver rather than Bluetooth, so there is no pairing step when the deck boots. On something you switch on cold in the field, that is a real advantage over a Bluetooth board."}, {"h": "Why it is here", "t": "Stows flat in the front strip. At 354 by 141mm it eats the front half of the base floor, which is exactly why every electronic component lives in the rear 150mm."}],
+          name: "Logitech K400 Plus",
+          color: "#6e6f64",
+          size: [354, 24, 141],
+          pos: [0, FLOOR_Y + 12, 75.8],
+          in: "base",
+          est: false,
+          spec: "354 × 141 × 24mm",
+          note: "Stows in the front strip. It eats half the base floor, which is the real reason the electronics all live in the back 150mm.",
+        },
+        {
+          id: "esp32",
+          name: "ESP32 Marauder",
+          color: "#6f7f9b",
+          size: [28, 11, 56],
+          pos: [190, FLOOR_Y + 5.5, -85],
+          in: "base",
+          est: false,
+          model: { url: "/models/esp32.glb", yFrom: -5.6, standoff: 0, color: 0x4d5c78 },
+          spec: "ESP32-WROOM-32, 38-pin devkit",
+          desc: [
+            { h: "What it does", t: "A small wireless board for 2.4GHz Wi-Fi and Bluetooth work. On this deck it is the experimental add-on rather than part of the core mission." },
+            { h: "How it works", t: "A dual-core microcontroller with its own radio, running separate firmware from the Pi. It connects over USB, which gives it both power and a serial link, so the Pi can talk to it without any soldered connection." },
+            { h: "Why it is here", t: "It parks in the right zone next to the hub. Keeping it USB-only means it can come out without touching the harness, which is the right call for a part that is not load-bearing for the build." },
+          ],
+          note: "Lowest priority item on the list. Do not let it hold up the core build, and do not integrate it permanently in version one.",
+        },
+        {
+          id: "screen",
+          desc: [{"h": "What it does", "t": "The display, and the second input method through its touch layer."}, {"h": "How it works", "t": "Mini-HDMI carries video from the Pi's micro-HDMI output, and a separate USB-C line carries the 10-point touch data back. The Pi 5's own USB-C port is power input only with no DisplayPort alt mode, so the one-cable USB-C setup in the marketing does not apply. Three cables cross the hinge."}, {"h": "Why it is here", "t": "It fills the lid. A kilogram hanging up there loads the hinge every time the case opens, so the bracket needs to spread that across the lid face rather than four small points. At 300 nits it will also be hard to read in direct sun, which is what the printed hood is for."}],
+          name: "CrowVi 15.6\" touchscreen",
+          color: "#d5d8ce",
+          size: [360, 10, 230],
+          pos: [0, LID_INNER_Y - 5, 0],
+          in: "lid",
+          est: false,
+          spec: "360 × 230 × 10mm · 1020g",
+          note: "Fills most of the lid. A kilogram hanging in the lid puts real load on the hinge, so the bracket needs to spread that across the lid face rather than four small points.",
+        },
+      ];
+
+      // ---- Scene ---------------------------------------------------------
+      const stage = document.getElementById("stage");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#0c0d0b");
+
+      const camera = new THREE.PerspectiveCamera(38, 1, 1, 5000);
+      camera.position.set(520, 430, 620);
+
+      // Measured from the loaded shell rather than guessed, so the orbit pivot
+      // sits at the middle of the case and the whole thing starts in frame.
+      const CASE_CENTRE = new THREE.Vector3(0, -32, 0);
+      let fitDistance = 900;
+
+      function frameCase() {
+        // Measure the shell meshes only. Measuring whole groups pulls in the
+        // hinge wire, which starts as an empty geometry whose bounds are
+        // infinite - that turns the result into NaN and breaks every view.
+        const box = new THREE.Box3();
+        const lidWas = lidGroup.rotation.x;
+        lidGroup.rotation.x = 0; // measure the case closed
+        lidGroup.updateMatrixWorld(true);
+        baseGroup.updateMatrixWorld(true);
+        shellMeshes.forEach((m) => {
+          m.geometry.computeBoundingBox();
+          const b = m.geometry.boundingBox;
+          if (!b || !isFinite(b.min.x)) return;
+          box.union(b.clone().applyMatrix4(m.matrixWorld));
+        });
+        lidGroup.rotation.x = lidWas;
+        lidGroup.updateMatrixWorld(true);
+        if (box.isEmpty()) return;
+
+        box.getCenter(CASE_CENTRE);
+        const size = box.getSize(new THREE.Vector3());
+        const radius = size.length() / 2;
+        const fov = THREE.MathUtils.degToRad(camera.fov);
+        fitDistance = (radius / Math.sin(fov / 2)) * 0.95;
+
+        controls.target.copy(CASE_CENTRE);
+        setView(new THREE.Vector3(0.62, 0.52, 0.86), false);
+        controls.update();
+      }
+
+      // Move the camera to a direction around the case centre.
+      let camAnim = null;
+      function setView(dir, animate = true) {
+        const to = CASE_CENTRE.clone().add(dir.clone().normalize().multiplyScalar(fitDistance));
+        if (!animate) {
+          camera.position.copy(to);
+          return;
+        }
+        camAnim = { from: camera.position.clone(), to, t: 0 };
+      }
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      stage.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.zoomToCursor = true; // scroll zooms at the pointer, not the pivot
+      controls.target.copy(CASE_CENTRE);
+      controls.maxDistance = 2200;
+      controls.minDistance = 220;
+
+      scene.add(new THREE.HemisphereLight(0xdfe3d8, 0x1b1d18, 1.5));
+      const key = new THREE.DirectionalLight(0xffffff, 1.7);
+      key.position.set(400, 700, 500);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+      fill.position.set(-500, 220, -350);
+      scene.add(fill);
+
+      const grid = new THREE.GridHelper(1400, 28, 0x2a2c26, 0x1b1d18);
+      grid.position.y = -118;
+      scene.add(grid);
+
+      // ---- Groups ---------------------------------------------------------
+      const lidGroup = new THREE.Group();          // pivots at the hinge
+      lidGroup.position.set(0, 0, HINGE_Z);
+      scene.add(lidGroup);
+      const baseGroup = new THREE.Group();
+      scene.add(baseGroup);
+
+      // ---- Case shell ------------------------------------------------------
+      const shellMat = () =>
+        new THREE.MeshStandardMaterial({
+          color: 0xb1372f,
+          roughness: 0.72,
+          metalness: 0.02,
+          transparent: true,
+          opacity: 0.24,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+
+      const shellMats = [];
+      const shellMeshes = [];
+      new GLTFLoader().load(
+        "/case.glb",
+        (gltf) => {
+          const root = gltf.scene;
+          root.updateMatrixWorld(true);
+
+          const meshes = [];
+          root.traverse((o) => { if (o.isMesh) meshes.push(o); });
+
+          // Bake world transforms and convert metres -> millimetres.
+          const baked = meshes.map((mesh) => {
+            mesh.updateMatrixWorld(true);
+            const g = mesh.geometry.clone();
+            g.applyMatrix4(mesh.matrixWorld);
+            g.scale(1000, 1000, 1000);
+            g.computeBoundingBox();
+            return { name: mesh.name, geo: g, box: g.boundingBox.clone() };
+          });
+
+          // Identify the lid geometrically rather than by name: the GLB
+          // exporter renames nodes, so name matching is not reliable. The lid
+          // is simply the piece that reaches highest, and its underside sits
+          // on the parting line.
+          let lidPiece = baked[0];
+          baked.forEach((b) => { if (b.box.max.y > lidPiece.box.max.y) lidPiece = b; });
+          const partingY = lidPiece.box.min.y;
+
+          // Centre the whole case on the origin in plan.
+          const all = new THREE.Box3();
+          baked.forEach((b) => all.union(b.box));
+          const cx = (all.min.x + all.max.x) / 2;
+          const cz = (all.min.z + all.max.z) / 2;
+
+          baked.forEach((b) => {
+            b.geo.translate(-cx, -partingY, -cz);
+            const m = shellMat();
+            shellMats.push(m);
+            const out = new THREE.Mesh(b.geo, m);
+            out.renderOrder = 2;
+            shellMeshes.push(out);
+
+            if (b === lidPiece) {
+              b.geo.translate(0, 0, -HINGE_Z); // move into the hinge frame
+              lidGroup.add(out);
+            } else {
+              baseGroup.add(out);
+            }
+          });
+
+          document.getElementById("loading").remove();
+          apply(); // shell materials only exist now
+          frameCase();
+        },
+        undefined,
+        () => {
+          document.getElementById("loading").textContent = "Case model failed to load";
+        },
+      );
+
+      // ---- Interior envelope -------------------------------------------------
+      // Base opening and lid volume drawn as wireframes so you can see how much
+      // usable room is actually left. Draft angle is not modelled here.
+      const envGroup = new THREE.Group();
+      scene.add(envGroup);
+
+      const envMat = new THREE.LineBasicMaterial({ color: 0x7d9b82, transparent: true, opacity: 0.5 });
+      const envBase = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(IN_X, BASE_D, IN_Z)),
+        envMat,
+      );
+      envBase.position.set(0, FLOOR_Y + BASE_D / 2, 0);
+      envGroup.add(envBase);
+
+      const envLid = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(IN_X, LID_D, IN_Z)),
+        envMat.clone(),
+      );
+      envLid.position.set(0, LID_D / 2, -HINGE_Z);
+      lidGroup.add(envLid);
+
+      // ---- Component blocks -------------------------------------------------
+      const pickables = [];
+      const blocks = {};
+
+      const gltfLoader = new GLTFLoader();
+
+      // Where a real model exists, load it and drop the placeholder box.
+      // yFrom is the model-space Y that should land on the mounting surface;
+      // standoff lifts that surface off the case floor.
+      function loadPartModel(p, holder, placeholder) {
+        gltfLoader.load(p.model.url, (g) => {
+          const root = g.scene;
+          root.updateMatrixWorld(true);
+          const merged = [];
+          root.traverse((o) => {
+            if (!o.isMesh) return;
+            o.updateMatrixWorld(true);
+            const geo = o.geometry.clone();
+            geo.applyMatrix4(o.matrixWorld);
+            merged.push(geo);
+          });
+          if (!merged.length) return;
+
+          const mat = new THREE.MeshStandardMaterial({
+            color: p.model.color, roughness: 0.55, metalness: 0.25,
+          });
+          const grp = new THREE.Group();
+          merged.forEach((geo) => {
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.userData.part = p;
+            grp.add(mesh);
+            pickables.push(mesh);
+          });
+
+          // centre the footprint on the part origin, seat it on its surface
+          const box = new THREE.Box3().setFromObject(grp);
+          const c = box.getCenter(new THREE.Vector3());
+          grp.position.x = -c.x;
+          grp.position.z = -c.z;
+          grp.position.y = -p.model.yFrom;
+
+          holder.remove(placeholder);
+          const i = pickables.indexOf(placeholder);
+          if (i >= 0) pickables.splice(i, 1);
+          holder.add(grp);
+          p._mesh = grp.children[0];
+          p._modelGroup = grp;
+          p._mat = mat;
+          apply();
+        });
+      }
+
+      PARTS.forEach((p) => {
+        const geo = new THREE.BoxGeometry(...p.size);
+        const mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(p.color),
+          roughness: 0.45,
+          metalness: 0.08,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.userData.part = p;
+        mesh.renderOrder = 1;
+
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(geo),
+          new THREE.LineBasicMaterial({ color: 0x0c0d0b, transparent: true, opacity: 0.55 }),
+        );
+        mesh.add(edges);
+
+        const holder = new THREE.Group();
+        holder.add(mesh);
+
+        if (p.in === "lid") {
+          holder.position.set(p.pos[0], p.pos[1], p.pos[2] - HINGE_Z);
+          lidGroup.add(holder);
+        } else if (p.model) {
+          // model parts are seated on their mounting surface, not centred
+          holder.position.set(p.pos[0], FLOOR_Y + p.model.standoff, p.pos[2]);
+          mesh.position.y = p.size[1] / 2 - p.model.standoff + (p.pos[1] - p.size[1] / 2 - FLOOR_Y);
+          baseGroup.add(holder);
+        } else {
+          holder.position.set(...p.pos);
+          baseGroup.add(holder);
+        }
+
+        p._holder = holder;
+        p._home = holder.position.clone();
+        p._mesh = mesh;
+        blocks[p.id] = p;
+        pickables.push(mesh);
+
+        if (p.model) loadPartModel(p, holder, mesh);
+
+        const tag = document.createElement("div");
+        tag.className = "tag";
+        tag.textContent = p.name;
+        stage.appendChild(tag);
+        p._tag = tag;
+      });
+
+      // ---- Selection card ------------------------------------------------------
+      const card = document.getElementById("card");
+      document.getElementById("card-x").onclick = () => { card.hidden = true; clearSel(); };
+
+      let selected = null;
+
+      const glow = (p, on) => {
+        const root = p._modelGroup || p._mesh;
+        root.traverse((o) => {
+          if (!o.material || o.isLineSegments) return;
+          o.material.emissive = new THREE.Color(on ? 0x555b4e : 0x000000);
+          o.material.needsUpdate = true;
+        });
+      };
+
+      function clearSel() {
+        selected = null;
+        PARTS.forEach((p) => glow(p, false));
+        document.querySelectorAll(".partrow").forEach((el) => el.classList.remove("on"));
+      }
+
+      function select(id) {
+        selected = id;
+        PARTS.forEach((p) => glow(p, p.id === id));
+        document.querySelectorAll(".partrow").forEach((el) => {
+          el.classList.toggle("on", el.dataset.id === id);
+        });
+
+        const p = blocks[id];
+        document.getElementById("c-name").innerHTML =
+          p.name + (p.est ? '<span class="est">Est. size</span>' : "");
+        document.getElementById("c-meta").textContent =
+          `${p.spec} \u00b7 ${p.size[0]} \u00d7 ${p.size[2]} \u00d7 ${p.size[1]}mm`;
+        document.getElementById("c-body").innerHTML =
+          (p.desc || []).map((d) => `<h3>${d.h}</h3><p>${d.t}</p>`).join("") +
+          `<h3>Placement note</h3><p>${p.note}</p>`;
+        card.hidden = false;
+        card.scrollTop = 0;
+      }
+
+      const ray = new THREE.Raycaster();
+      const ptr = new THREE.Vector2();
+      let downAt = null;
+      renderer.domElement.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
+      renderer.domElement.addEventListener("pointerup", (e) => {
+        if (!downAt) return;
+        const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
+        downAt = null;
+        if (moved > 5) return;
+        const r = renderer.domElement.getBoundingClientRect();
+        ptr.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+        ptr.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+        ray.setFromCamera(ptr, camera);
+        const hit = ray.intersectObjects(pickables, false)[0];
+        if (hit) select(hit.object.userData.part.id);
+      });
+
+      // ---- Wiring overlay -----------------------------------------------------------
+      // Routes follow the confirmed order: battery -> switch -> fuse -> buck -> Pi,
+      // with the switch and fuse on the positive line only and ground running
+      // straight through. Paths are indicative routing, not a cut list.
+      const F = FLOOR_Y;
+      const WIRE_COLORS = {
+        pos: 0xc45c4a,   // battery positive
+        gnd: 0x6e6f64,   // ground
+        v5: 0xb8956a,    // regulated 5V
+        data: 0x7d9b82,  // data and video
+      };
+
+      const WIRES = [
+        { k: "pos", pts: [[-42.5,-90,-120], [-25,-104,-140], [150,-104,-146], [190,-97,-146]] },
+        { k: "pos", pts: [[190,-97,-124], [180,-104,-124], [162,-104,-128], [152.5,-95,-130]] },
+        { k: "gnd", pts: [[-42.5,-90,-100], [0,-104,-88], [85,-104,-88], [115,-95,-97.5]] },
+        { k: "v5",  pts: [[87.5,-95,-110], [75,-104,-105], [62,-104,-108], [52.5,-92,-110]] },
+        { k: "v5",  pts: [[100,-95,-97.5], [90,-104,-84], [75,-104,-72], [70,-95,-70]] },
+        { k: "data", pts: [[52.5,-92,-85], [60,-100,-70], [66,-98,-58], [70,-95,-55]] },
+      ];
+
+      const wireGroup = new THREE.Group();
+      baseGroup.add(wireGroup);
+
+      const wireMat = {};
+      Object.entries(WIRE_COLORS).forEach(([k, c]) => {
+        wireMat[k] = new THREE.MeshStandardMaterial({
+          color: c, roughness: 0.5, metalness: 0.1,
+        });
+      });
+
+      const tube = (pts, mat) => {
+        const curve = new THREE.CatmullRomCurve3(
+          pts.map((p) => new THREE.Vector3(...p)), false, "catmullrom", 0.4,
+        );
+        return new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 2.2, 7, false), mat);
+      };
+
+      WIRES.forEach((w) => wireGroup.add(tube(w.pts, wireMat[w.k])));
+
+      // The screen run crosses the hinge, so it has to be rebuilt as the lid moves.
+      // This is the highest-wear path in the build and worth being able to see.
+      const hingeMesh = new THREE.Mesh(new THREE.BufferGeometry(), wireMat.data);
+      wireGroup.add(hingeMesh);
+      const LID_PORT = new THREE.Vector3(-178, LID_INNER_Y - 6, 80 - HINGE_Z); // lid frame
+      let lastLidAngle = null;
+
+      function rebuildHingeWire() {
+        lidGroup.updateMatrixWorld(true);
+        const end = LID_PORT.clone().applyMatrix4(lidGroup.matrixWorld);
+        const pts = [
+          new THREE.Vector3(52.5, -92, -78),
+          new THREE.Vector3(20, -100, -140),
+          new THREE.Vector3(-60, -60, -168),
+          new THREE.Vector3(-120, -10, -172),
+          end,
+        ];
+        const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.4);
+        hingeMesh.geometry.dispose();
+        hingeMesh.geometry = new THREE.TubeGeometry(curve, 56, 2.6, 7, false);
+      }
+
+      // ---- Control panel ----------------------------------------------------------
+      const state = {
+        lid: true,
+        solid: false,   // false = see-through shell
+        xray: true,     // draw components over a solid shell
+        wires: false,
+        env: true,
+        labels: true,
+        explode: false,
+      };
+
+      const MENU = [
+        { grp: "Case" },
+        { key: "lid", label: "Lid open", sub: "Swing the lid back on its hinge" },
+        { key: "solid", label: "Solid shell", sub: "Off shows a see-through case" },
+        {
+          key: "xray",
+          label: "See through walls",
+          sub: "Draws components over a solid shell",
+          needs: "solid",
+        },
+        { grp: "Overlays" },
+        { key: "wires", label: "Wiring", sub: "Power, ground and data runs" },
+        { key: "env", label: "Interior envelope", sub: "435 × 292.6mm usable volume" },
+        { key: "labels", label: "Part labels" },
+        { key: "explode", label: "Exploded view" },
+      ];
+
+      const panel = document.getElementById("menu-panel");
+      const rows = {};
+      MENU.forEach((item) => {
+        if (item.grp) {
+          const g = document.createElement("div");
+          g.className = "grp";
+          g.textContent = item.grp;
+          panel.appendChild(g);
+          return;
+        }
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML =
+          `<span><span class="lbl">${item.label}</span>` +
+          (item.sub ? `<div class="sub">${item.sub}</div>` : "") +
+          `</span><span class="sw"></span>`;
+        row.onclick = () => {
+          state[item.key] = !state[item.key];
+          apply();
+        };
+        panel.appendChild(row);
+        rows[item.key] = { row, sw: row.querySelector(".sw"), needs: item.needs };
+      });
+
+      // parts picker lives in the same dropdown
+      const pg = document.createElement("div");
+      pg.className = "grp";
+      pg.textContent = "Parts";
+      panel.appendChild(pg);
+      PARTS.forEach((p) => {
+        const row = document.createElement("div");
+        row.className = "row partrow";
+        row.dataset.id = p.id;
+        row.innerHTML =
+          `<span class="lbl">${p.name}</span>` +
+          `<span class="chip" style="background:${p.color}"></span>`;
+        row.onclick = () => select(p.id);
+        panel.appendChild(row);
+      });
+
+      const menuBtn = document.getElementById("menu-btn");
+      menuBtn.onclick = (e) => {
+        e.stopPropagation();
+        const open = panel.classList.toggle("open");
+        menuBtn.setAttribute("aria-expanded", String(open));
+      };
+      panel.onclick = (e) => e.stopPropagation();
+      document.addEventListener("click", () => {
+        panel.classList.remove("open");
+        menuBtn.setAttribute("aria-expanded", "false");
+      });
+
+      function apply() {
+        // shell opacity
+        shellMats.forEach((m) => {
+          m.opacity = state.solid ? 0.97 : 0.24;
+          m.depthWrite = state.solid;
+          m.transparent = !state.solid;
+          m.needsUpdate = true;
+        });
+
+        // x-ray only means anything once the shell is solid
+        const xray = state.solid && state.xray;
+        PARTS.forEach((p) => {
+          const root = p._modelGroup || p._mesh;
+          root.traverse((o) => {
+            if (!o.material) return;
+            o.material.depthTest = !xray;
+            o.material.needsUpdate = true;
+            o.renderOrder = xray ? (o.isLineSegments ? 7 : 6) : 1;
+          });
+        });
+
+        // wiring: routes are meaningless once parts are pulled apart
+        const showWires = state.wires && !state.explode;
+        wireGroup.visible = showWires;
+        Object.values(wireMat).forEach((m) => {
+          m.depthTest = !xray;
+          m.needsUpdate = true;
+        });
+        wireGroup.renderOrder = xray ? 6 : 1;
+        document.getElementById("legend").style.display = showWires ? "flex" : "none";
+
+        envGroup.visible = state.env;
+        envLid.visible = state.env;
+        envMat.depthTest = !xray;
+        envLid.material.depthTest = !xray;
+        envGroup.renderOrder = xray ? 5 : 0;
+        envLid.renderOrder = xray ? 5 : 0;
+
+        PARTS.forEach((p) => { p._tag.style.display = state.labels ? "" : "none"; });
+
+        // reflect state in the switches
+        Object.entries(rows).forEach(([k, r]) => {
+          r.sw.classList.toggle("on", !!state[k]);
+          if (r.needs) r.row.classList.toggle("disabled", !state[r.needs]);
+        });
+      }
+      apply();
+
+      // ---- ViewCube ------------------------------------------------------------
+      // Works the way CAD ones do: the cube mirrors the camera orientation, and
+      // clicking snaps to a view. Faces, edges and corners are all pickable -
+      // the hit point on the cube is quantised to -1/0/+1 per axis, which gives
+      // the 6 faces, 12 edges and 8 corners without any extra geometry.
+      const cubeCanvas = document.getElementById("viewcube");
+      const cubeRenderer = new THREE.WebGLRenderer({
+        canvas: cubeCanvas, antialias: true, alpha: true,
+      });
+      cubeRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      cubeRenderer.setSize(200, 200, false);
+
+      const cubeScene = new THREE.Scene();
+      const cubeCam = new THREE.OrthographicCamera(-1.6, 1.6, 1.6, -1.6, 0.1, 40);
+      cubeScene.add(new THREE.HemisphereLight(0xffffff, 0x3a3d34, 2.0));
+      const cubeKey = new THREE.DirectionalLight(0xffffff, 1.1);
+      cubeKey.position.set(3, 5, 4);
+      cubeScene.add(cubeKey);
+
+      function faceTexture(label) {
+        const c = document.createElement("canvas");
+        c.width = c.height = 128;
+        const g = c.getContext("2d");
+        g.fillStyle = "#1f221c";
+        g.fillRect(0, 0, 128, 128);
+        g.strokeStyle = "#3c4036";
+        g.lineWidth = 6;
+        g.strokeRect(3, 3, 122, 122);
+        g.fillStyle = "#d5d8ce";
+        g.font = "600 25px 'Barlow Condensed', Arial Narrow, sans-serif";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.letterSpacing = "3px";
+        g.fillText(label, 64, 68);
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 4;
+        return t;
+      }
+
+      // BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
+      const CUBE_LABELS = ["RIGHT", "LEFT", "TOP", "BOTTOM", "FRONT", "BACK"];
+      const cubeMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 1.7, 1.7),
+        CUBE_LABELS.map((l) => new THREE.MeshStandardMaterial({
+          map: faceTexture(l), roughness: 0.85, metalness: 0,
+        })),
+      );
+      cubeScene.add(cubeMesh);
+      cubeScene.add(new THREE.LineSegments(
+        new THREE.EdgesGeometry(cubeMesh.geometry),
+        new THREE.LineBasicMaterial({ color: 0x6e6f64 }),
+      ));
+
+      // small highlight that tracks whichever region is under the pointer
+      const hl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 16, 12),
+        new THREE.MeshBasicMaterial({ color: 0xd5d8ce }),
+      );
+      hl.visible = false;
+      cubeScene.add(hl);
+
+      const cubeRay = new THREE.Raycaster();
+      const cubePtr = new THREE.Vector2();
+
+      // The case's front face is +Z in world space; the cube shares that frame.
+      function pickCube(ev) {
+        const r = cubeCanvas.getBoundingClientRect();
+        cubePtr.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+        cubePtr.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+        cubeRay.setFromCamera(cubePtr, cubeCam);
+        const hit = cubeRay.intersectObject(cubeMesh, false)[0];
+        if (!hit) return null;
+        const local = cubeMesh.worldToLocal(hit.point.clone()).multiplyScalar(2 / 1.7);
+        const snap = (v) => (v > 0.55 ? 1 : v < -0.55 ? -1 : 0);
+        const dir = new THREE.Vector3(snap(local.x), snap(local.y), snap(local.z));
+        if (dir.lengthSq() === 0) return null;
+        return dir;
+      }
+
+      cubeCanvas.addEventListener("pointermove", (e) => {
+        const d = pickCube(e);
+        hl.visible = !!d;
+        if (d) hl.position.copy(d).multiplyScalar(0.85);
+      });
+      cubeCanvas.addEventListener("pointerleave", () => { hl.visible = false; });
+      cubeCanvas.addEventListener("click", (e) => {
+        const d = pickCube(e);
+        if (d) setView(d);
+      });
+
+      const cubeQ = new THREE.Quaternion();
+      function drawCube() {
+        // orient the cube to match how the camera is looking at the case
+        cubeCam.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(8);
+        cubeCam.up.copy(camera.up);
+        cubeCam.lookAt(0, 0, 0);
+        cubeCam.updateMatrixWorld();
+        cubeMesh.quaternion.copy(cubeQ);
+        cubeRenderer.render(cubeScene, cubeCam);
+      }
+
+      // ---- Loop --------------------------------------------------------------------
+      const LID_OPEN = THREE.MathUtils.degToRad(-105);
+      const wp = new THREE.Vector3();
+
+      function resize() {
+        const w = stage.clientWidth, h = stage.clientHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      addEventListener("resize", resize);
+      resize();
+
+      renderer.setAnimationLoop(() => {
+        lidGroup.rotation.x += ((state.lid ? LID_OPEN : 0) - lidGroup.rotation.x) * 0.12;
+
+        if (wireGroup.visible &&
+            (lastLidAngle === null || Math.abs(lidGroup.rotation.x - lastLidAngle) > 0.002)) {
+          lastLidAngle = lidGroup.rotation.x;
+          rebuildHingeWire();
+        }
+
+        PARTS.forEach((p) => {
+          const target = p._home.clone();
+          if (state.explode) target.y += p.in === "lid" ? 120 : 150 + p._home.x * 0.12;
+          p._holder.position.lerp(target, 0.12);
+        });
+
+        if (camAnim) {
+          camAnim.t = Math.min(1, camAnim.t + 0.08);
+          const e = 1 - Math.pow(1 - camAnim.t, 3);
+          camera.position.lerpVectors(camAnim.from, camAnim.to, e);
+          controls.target.lerp(CASE_CENTRE, e * 0.5);
+          if (camAnim.t >= 1) camAnim = null;
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+        drawCube();
+
+        if (state.labels) {
+          const r = renderer.domElement.getBoundingClientRect();
+          PARTS.forEach((p) => {
+            p._holder.getWorldPosition(wp);
+            wp.y += p.size[1] / 2 + 14;
+            const v = wp.clone().project(camera);
+            const vis = v.z < 1;
+            p._tag.style.display = vis ? "" : "none";
+            p._tag.style.left = ((v.x * 0.5 + 0.5) * r.width) + "px";
+            p._tag.style.top = ((-v.y * 0.5 + 0.5) * r.height) + "px";
+            p._tag.style.opacity = selected === p.id ? "1" : "0.72";
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

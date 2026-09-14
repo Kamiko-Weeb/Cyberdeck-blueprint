@@ -85,7 +85,7 @@ export const NODES: Record<NodeId, DeckNode> = {
       "If the pack swells, puffs, or exceeds ~60 °C, retire it.",
     ],
     notes: [
-      "Runtime math: 11.1 V × 10.5 Ah = 116.5 Wh. At 15 W average and ~90% buck efficiency that is about 7 hours; 80% usable capacity lands at 6–7 hours as specified.",
+      "Runtime math: 11.1 V × 10.5 Ah = 116.5 Wh. The 15.6\" panel pushes the average load to roughly 18 W. At ~90% buck efficiency and 80% usable capacity that is about 4–5 hours, down from the 6–7 hours the 10.1\" panel would have given.",
       "Charge by opening the case and connecting the iMAX B6 to the pack directly. Version 1 has no in-case charging path.",
     ],
   },
@@ -154,7 +154,7 @@ export const NODES: Record<NodeId, DeckNode> = {
     ],
     warnings: [
       "Never bypass a blown fuse with foil or a higher rating. Find the short first.",
-      "Size: 15 W at 11.1 V is 1.4 A. Inrush plus the buck is still well under 5 A. 7.5 A is the working fuse; 5 A is the spare.",
+      "Size: 18 W at 11.1 V is 1.6 A. Inrush plus the buck is still well under 5 A. 7.5 A is the working fuse; 5 A is the spare.",
     ],
     notes: ["Holder and blades are separate line items on the sheet. Buy ATC, not mini, so gloved hands can change it."],
   },
@@ -180,7 +180,7 @@ export const NODES: Record<NodeId, DeckNode> = {
     warnings: [
       "CRITICAL: the listing is a ‘fast charge’ USB module. QC/FCP ports can jump to 9 V or 12 V and will kill a Pi 5. Do not use the USB-A jack until you have measured it at 5.0–5.2 V under load with no data lines tied. Prefer a USB-C pigtail on the screw terminals.",
       "Do not connect the Pi while adjusting the pot. A slip to 8 V is a dead board.",
-      "5 A is the entire 5 V budget. Pi 5 without USB-PD negotiates 3 A (15 W), which matches the 15 W design load. Do not add a second display or a bus-powered HDD.",
+      "5 A is the entire 5 V budget. Pi 5 without USB-PD negotiates 3 A (15 W). The 15.6\" panel can ask for another 2 A on its own, so the 5 A rail is now genuinely tight. Do not add a second display or a bus-powered HDD.",
     ],
     notes: [
       "Mount in the right-hand electronics zone with standoffs and airflow. The module will run warm at 3 A.",
@@ -263,47 +263,56 @@ export const NODES: Record<NodeId, DeckNode> = {
   },
   display: {
     id: "display",
-    name: "Elecrow 10.1\" IPS touch",
-    short: "10.1\" display",
+    name: "CrowVi VF156T 15.6\" touch",
+    short: "15.6\" display",
     kicker: "Lid panel",
     status: "required",
     zone: "io",
-    voltage: "5 V via USB",
-    connector: "HDMI in · USB for touch and power",
-    price: 66,
+    voltage: "5 V via USB-C",
+    connector: "Mini-HDMI in · USB-C for touch · USB-C for power",
+    price: 129,
     summary:
-      "1280×800 IPS panel that mounts in the Pelican 1500 lid. Video over HDMI, touch and panel power over USB from the powered hub.",
+      "1920x1080 IPS touch panel, 360 x 230 x 10 mm, 1020 g. Mounts in the Pelican 1500 lid. Video over mini-HDMI, ten-point touch and panel power over separate USB-C lines.",
     wiring: [
-      "HDMI: Pi 5 micro-HDMI 0 → panel HDMI (standard HDMI cable + micro-HDMI adapter, or a dedicated micro-HDMI-to-HDMI lead). Route through the lid hinge with a service loop.",
-      "USB: hub downstream → panel USB. This is both HID touch and 5 V for the backlight. Do not also feed a separate barrel jack.",
+      "Video: Pi 5 micro-HDMI 0 -> panel mini-HDMI. Route through the lid hinge with a service loop.",
+      "Touch: panel USB-C data port -> hub downstream USB port.",
+      "Power: panel USB-C power port -> hub 5 V. Up to about 2 A, which is why the hub is self-powered.",
     ],
     warnings: [
-      "Hinge fatigue will kill a taut HDMI cable. Leave slack and strain-relieve on both the lid and the base.",
-      "Confirm the panel is 1280×800 so the Pi boots to a matching mode. Do not buy a 1920×1080 10.1 if you want this layout.",
+      "The one-cable USB-C setup in the marketing does not apply. The Pi 5 USB-C port is power input only with no DisplayPort alt mode, so three cables cross the hinge.",
+      "Hinge fatigue will kill a taut cable bundle. Leave slack, strain-relieve both ends, and route at the hinge axis so the loom twists rather than stretches.",
+      "1020 g in the lid loads the hinge on every open. Spread the bracket across the lid face instead of four small points.",
+      "300 nit is dim for direct sun. Plan a printed hood; it is not optional for a field device.",
     ],
     notes: [
-      "Active area is roughly 8.6\" × 5.4\" on a 16:10 10.1\". The 16.75\" × 11.18\" lid has room for a printed bezel and the HDMI/USB tails.",
+      "Active area 344 x 193 mm inside a 360 x 230 mm frame. The 435 x 292.6 mm lid opening leaves roughly 37 mm of margin each side.",
+      "Pelican dimensions the lid with five moulded bosses. Check them against the panel bracket before drilling anything.",
     ],
   },
   ssd: {
     id: "ssd",
-    name: "Crucial X9 1 TB SSD",
-    short: "1 TB SSD",
-    kicker: "All user data",
+    name: "Kingston NV3 500 GB + M.2 HAT",
+    short: "NVMe storage",
+    kicker: "Boot + all user data",
     status: "required",
-    zone: "io",
-    connector: "USB 3.2 Type-C",
-    price: 191,
+    zone: "compute",
+    connector: "M.2 2280 NVMe on the Pi 5 PCIe lane",
+    price: 200,
     summary:
-      "External SSD for Wikipedia dumps, offline maps, survival manuals, and later RAG indexes. The microSD is OS only — if the card dies, the data still lives here.",
+      "Internal NVMe drive on a PCIe HAT. Holds the OS and the offline payload: Kiwix Wikipedia, maps, manuals and later RAG indexes. The deck boots straight off it, so there is no microSD in the build.",
     wiring: [
-      "USB-C into the powered hub (USB 3 port, not USB 2). Do not plug into the Pi USB 2 ports.",
+      "HAT seats on the Pi 5 PCIe FFC connector. No power harness of its own.",
+      "Enable PCIe in config.txt. Third-party 2280 boards are not HAT+ compliant and will not auto-configure.",
     ],
     warnings: [
-      "Do not store the dump on the microSD. A2 cards wear out and are unrecoverable in the field.",
-      "Velcro the enclosure so a drop does not yank the USB-C plug.",
+      "The NV3 is M.2 2280. The official Raspberry Pi M.2 HAT+ only takes 2230 or 2242 - it will not physically fit. Use a 2280 board such as the Pimoroni NVMe Base.",
+      "Check whether your HAT mounts above or below the Pi. Below is better here: it keeps the Active Cooler exhaust clear.",
     ],
-    notes: ["USB 3.2 up to ~1050 MB/s. Real Raspberry Pi 5 USB 3 is closer to 400–800 MB/s — still fine for Kiwix and maps."],
+    notes: [
+      "The Pi 5 PCIe link is Gen2 x1, roughly 450-500 MB/s. The drive is rated far higher and that headroom is unusable. Do not pay for a faster drive.",
+      "500 GB is sized against the real payload: Wikipedia with images is about 110 GB, BC map data about 20 GB, references a few GB, a quantised local model 5-20 GB.",
+      "Internal beats an external USB SSD for ruggedness: no cable to shake loose and no separate box rattling in the case.",
+    ],
   },
   keyboard: {
     id: "keyboard",
@@ -361,21 +370,20 @@ export const NODES: Record<NodeId, DeckNode> = {
   },
   sd: {
     id: "sd",
-    name: "128 GB A2 microSD",
-    short: "OS card",
-    kicker: "Boot media",
-    status: "required",
+    name: "microSD card",
+    short: "Not used",
+    kicker: "Superseded",
+    status: "deferred",
     zone: "compute",
     connector: "Pi 5 microSD slot",
-    price: 58,
+    price: 0,
     summary:
-      "OS only. Raspberry Pi OS (or your chosen image) lives here. Wikipedia, maps, and manuals do not.",
-    wiring: ["Seats in the Pi 5 card slot. No harness."],
+      "Dropped from the build. The deck boots from the NVMe drive instead, which removed about $58 from the parts list.",
+    wiring: ["No harness. Slot stays empty."],
     warnings: [
-      "A2-rated. Do not cheap out on a random card — boot corruption in the field is a dead deck.",
-      "The sheet links a 256 GB Extreme; the spec is 128 GB A2. Either works if it is A2. Keep the OS image under ~32 GB so clones stay easy.",
+      "Keep a flashed card on a shelf as a recovery image, but it is not part of the deck and not in the budget.",
     ],
-    notes: ["Clone the card the night before the 20 April 2027 demo. Carry the clone in the lid pocket."],
+    notes: ["Clone the NVMe the night before the 20 April 2027 demo."],
   },
   charger: {
     id: "charger",
@@ -567,7 +575,7 @@ export const BOM: BomItem[] = [
   {
     id: "b-case",
     name: "Pelican 1500 Protector Case",
-    price: 200,
+    price: 175,
     category: "enclosure",
     spec: "16.75\" × 11.18\" × 6.12\" interior · sealed",
     note: "Lid takes the panel. Base splits into battery / Pi / electronics.",
@@ -594,7 +602,7 @@ export const BOM: BomItem[] = [
     id: "b-sd",
     node: "sd",
     name: "128 GB A2 microSD",
-    price: 58,
+    price: 55,
     category: "compute",
     spec: "A2 · OS only",
     note: "Sheet links a 256 GB Extreme; spec is 128 GB A2. Either is fine if A2.",
@@ -611,11 +619,11 @@ export const BOM: BomItem[] = [
   {
     id: "b-display",
     node: "display",
-    name: "Elecrow 10.1\" IPS 1280×800",
-    price: 66,
+    name: "15.6\" touchscreen",
+    price: 130,
     category: "io",
-    spec: "HDMI video · USB touch",
-    note: "Fits the Pelican 1500 lid.",
+    spec: "1920×1080 IPS touch · 360 × 230 × 10 mm",
+    note: "Sheet row is half-updated: titled 15.6\" but the link and notes still describe the Elecrow 10.1\".",
   },
   {
     id: "b-kbd",
@@ -633,7 +641,7 @@ export const BOM: BomItem[] = [
     price: 170,
     category: "power",
     spec: "11.1 V · 50C · EC5",
-    note: "~6–7 h at 15 W average.",
+    note: "~4–5 h at 18 W average.",
   },
   {
     id: "b-adapt",
@@ -714,15 +722,6 @@ export const BOM: BomItem[] = [
     note: "Every soldered joint. Do not skip.",
   },
   {
-    id: "b-xt60p",
-    node: "xt60panel",
-    name: "XT60 panel-mount socket",
-    price: 13,
-    category: "optional",
-    spec: "XT60E-F bulkhead",
-    note: "Deferred. External charging later if needed.",
-  },
-  {
     id: "b-hub",
     node: "hub",
     name: "UGREEN 7-port powered hub",
@@ -784,6 +783,12 @@ export const BOM: BomItem[] = [
 ];
 
 export const BOM_TOTAL = BOM.reduce((sum, item) => sum + item.price, 0);
+
+// The sheet carries a 15% contingency for miscellaneous costs. It is real
+// money, and it is the main reason the sheet total and the grant figure differ.
+export const CONTINGENCY_RATE = 0.15;
+export const CONTINGENCY = Math.round(BOM_TOTAL * CONTINGENCY_RATE);
+export const SHEET_TOTAL = BOM_TOTAL + CONTINGENCY;
 
 export const POWER_BUDGET = [
   { id: "pi", name: "Pi 5 + active cooler", watts: 8, share: 0.53 },
@@ -902,22 +907,22 @@ export const CASE_ZONES = [
   {
     id: "center",
     title: "Center · compute",
-    body: "Pi 5 on M2.5 standoffs, Active Cooler, airflow clearance both sides. microSD accessible without removing the tray if you can.",
+    body: "Pi 5 on M2.5 standoffs with the Active Cooler and the NVMe HAT stacked. Airflow clearance both sides, nothing solid directly above the fan.",
   },
   {
     id: "right",
     title: "Right · power + hub",
-    body: "Buck, fuse holder, 5 V splits, UGREEN hub, SSD Velcro. Short 18 AWG runs.",
+    body: "Buck converter, switch and inline fuse, 5 V splits and the UGREEN hub. Short 18 AWG runs. Storage moved onto the Pi, so nothing else competes for this corner.",
   },
   {
     id: "lid",
     title: "Lid · display",
-    body: "Elecrow 10.1\" in a printed bezel. HDMI and USB through the hinge with slack.",
+    body: "CrowVi 15.6\" in a printed bezel, ideally bolted to the five moulded lid bosses. Mini-HDMI plus two USB-C through the hinge with slack.",
   },
   {
     id: "base",
     title: "Base · keyboard park",
-    body: "K400 Plus lays in the remaining floor when the lid closes. Design foam around that, not after.",
+    body: "K400 Plus lays in the front 141 mm of floor when the lid closes. That leaves about 150 mm at the back for everything else, which is what drives the whole layout.",
   },
 ];
 
