@@ -378,7 +378,7 @@
           <div id="c-meta"></div>
           <div id="c-body"></div>
         </div>
-        <div id="hint">Drag to orbit · scroll to zoom · click a part</div>
+        <div id="hint">Drag to orbit · shift-drag to pan · scroll to zoom · click a part · double-click to set the pivot or fit</div>
       </div>
     </div>
 
@@ -393,7 +393,6 @@
 
     <script type="module">
       import * as THREE from "three";
-      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
       // ---- Case reference geometry, millimetres -------------------------
@@ -586,20 +585,54 @@
         const fov = THREE.MathUtils.degToRad(camera.fov);
         fitDistance = (radius / Math.sin(fov / 2)) * 0.95;
 
-        controls.target.copy(CASE_CENTRE);
+        nav.pivot.copy(CASE_CENTRE);
         setView(new THREE.Vector3(0.62, 0.52, 0.86), false);
-        controls.update();
       }
 
-      // Move the camera to a direction around the case centre.
+      // Camera moves animate position and orientation together. Any drag,
+      // scroll or pinch cancels one in progress.
       let camAnim = null;
+      function animateTo(pos, lookAt) {
+        const toQ = new THREE.Quaternion().setFromRotationMatrix(
+          new THREE.Matrix4().lookAt(pos, lookAt, camera.up),
+        );
+        camAnim = {
+          fromP: camera.position.clone(), toP: pos.clone(),
+          fromQ: camera.quaternion.clone(), toQ, t: 0,
+        };
+      }
+
+      // Straight up or down has no defined "up" on screen, so tip it 0.5
+      // degrees toward the front. Top view then shows the front edge at the
+      // bottom of the screen, the same way Fusion's ViewCube does.
+      function safeDir(dir) {
+        const d = dir.clone().normalize();
+        const lim = Math.sin(THREE.MathUtils.degToRad(89.5));
+        if (Math.abs(d.y) <= lim) return d;
+        const h = new THREE.Vector3(d.x, 0, d.z);
+        if (h.lengthSq() < 1e-8) h.set(0, 0, 1);
+        h.normalize().multiplyScalar(Math.sqrt(1 - lim * lim));
+        return new THREE.Vector3(h.x, Math.sign(d.y) * lim, h.z);
+      }
+
+      // Look at the case centre from a direction. Resets the pivot.
       function setView(dir, animate = true) {
-        const to = CASE_CENTRE.clone().add(dir.clone().normalize().multiplyScalar(fitDistance));
+        const to = CASE_CENTRE.clone().add(safeDir(dir).multiplyScalar(fitDistance));
+        nav.pivot.copy(CASE_CENTRE);
         if (!animate) {
           camera.position.copy(to);
+          camera.lookAt(CASE_CENTRE);
           return;
         }
-        camAnim = { from: camera.position.clone(), to, t: 0 };
+        animateTo(to, CASE_CENTRE);
+      }
+
+      // Fusion's "zoom to fit": same viewing angle, whole case in frame,
+      // pivot back at the case centre.
+      function fitAll() {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        nav.pivot.copy(CASE_CENTRE);
+        animateTo(CASE_CENTRE.clone().addScaledVector(fwd, -fitDistance), CASE_CENTRE);
       }
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -607,12 +640,200 @@
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       stage.appendChild(renderer.domElement);
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.zoomToCursor = true; // scroll zooms at the pointer, not the pivot
-      controls.target.copy(CASE_CENTRE);
-      controls.maxDistance = 2200;
-      controls.minDistance = 220;
+      // ---- Navigation: Fusion 360 style --------------------------------------
+      // Fusion's default pivot is the centre of the model's bounding box, and it
+      // is a fixed point in the world. Orbit swings the camera rigidly around it
+      // without re-aiming, so the case turns in place wherever it sits on
+      // screen, even after a pan. Pan and zoom move the camera and leave the
+      // pivot alone. OrbitControls can't do that, because it always points the
+      // camera straight at its target, so it has been replaced.
+      //
+      //   Left drag, or Shift + middle drag ........... orbit
+      //   Middle drag, right drag, Shift + left drag .... pan
+      //   Scroll, pinch ................................. zoom toward the pointer
+      //   Double-click the case ......................... set orbit centre there
+      //   Double-click empty space, double-click middle . zoom to fit, pivot reset
+      //   Touch: one finger orbits, two fingers pan and pinch
+      // NAV-BEGIN
+      function createNav(camera, dom, { pickPoint = () => null, minDist = 60, maxDist = 2200 } = {}) {
+        const UP = new THREE.Vector3(0, 1, 0);
+        const PITCH_LIMIT = THREE.MathUtils.degToRad(89.5);
+        const nav = {
+          pivot: new THREE.Vector3(),
+          orbiting: false,
+          onStart() {}, onFit() {}, onPivot() {},
+        };
+
+        const axis = (x, y, z) => new THREE.Vector3(x, y, z).applyQuaternion(camera.quaternion);
+        const viewH = () => dom.clientHeight || 1;
+        const pivotDepth = () =>
+          Math.max(nav.pivot.clone().sub(camera.position).dot(axis(0, 0, -1)), minDist);
+
+        const raycaster = new THREE.Raycaster();
+        function rayAt(clientX, clientY) {
+          const r = dom.getBoundingClientRect();
+          camera.updateMatrixWorld();
+          raycaster.setFromCamera(
+            new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1),
+            camera,
+          );
+          return raycaster;
+        }
+
+        // The model point under the pointer. Over empty space, the point on the
+        // pointer ray at the same depth as the pivot.
+        nav.pointAt = (clientX, clientY) => {
+          const rc = rayAt(clientX, clientY);
+          const hit = pickPoint(rc);
+          if (hit) return hit;
+          const along = rc.ray.direction.dot(axis(0, 0, -1));
+          return rc.ray.at(pivotDepth() / Math.max(along, 1e-3), new THREE.Vector3());
+        };
+
+        // Turntable orbit: yaw about world up, pitch about the camera's right
+        // axis, both through the pivot. Position and orientation turn by the
+        // same rotation, which is what keeps the pivot still on screen.
+        nav.orbit = (dx, dy) => {
+          const pitch = Math.asin(THREE.MathUtils.clamp(axis(0, 0, -1).y, -1, 1));
+          const next = THREE.MathUtils.clamp(pitch - (2 * Math.PI * dy) / viewH(), -PITCH_LIMIT, PITCH_LIMIT);
+          const q = new THREE.Quaternion()
+            .setFromAxisAngle(UP, (-2 * Math.PI * dx) / viewH())
+            .multiply(new THREE.Quaternion().setFromAxisAngle(axis(1, 0, 0), next - pitch));
+          camera.position.sub(nav.pivot).applyQuaternion(q).add(nav.pivot);
+          camera.quaternion.premultiply(q);
+          // clear the tiny roll that floating point error adds over time
+          camera.lookAt(camera.position.clone().add(axis(0, 0, -1)));
+        };
+
+        // Grab-style pan: the point at pivot depth under the pointer follows
+        // it exactly. The pivot stays where it is.
+        nav.pan = (dx, dy) => {
+          const s = (2 * pivotDepth() * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / viewH();
+          camera.position.addScaledVector(axis(1, 0, 0), -dx * s).addScaledVector(axis(0, 1, 0), dy * s);
+        };
+
+        // Dolly along the pointer ray toward whatever is under it, so that
+        // point stays under the pointer. factor < 1 moves in.
+        nav.zoomAt = (clientX, clientY, factor) => {
+          const p = nav.pointAt(clientX, clientY);
+          const toP = p.clone().sub(camera.position);
+          const dist = toP.length();
+          const want = THREE.MathUtils.clamp(dist * factor, minDist, maxDist);
+          if ((factor < 1 && want >= dist) || (factor > 1 && want <= dist)) return;
+          const next = camera.position.clone().addScaledVector(toP.normalize(), dist - want);
+          if (factor > 1 && next.distanceTo(nav.pivot) > maxDist) return;
+          camera.position.copy(next);
+        };
+
+        const pointers = new Map();
+        let mode = null;
+        let lastMiddle = -Infinity;
+        dom.style.touchAction = "none";
+        dom.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        dom.addEventListener("pointerdown", (e) => {
+          nav.onStart();
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          dom.setPointerCapture(e.pointerId);
+          if (e.pointerType === "touch") {
+            mode = pointers.size === 1 ? "orbit" : "pinch";
+          } else if (e.button === 1) {
+            e.preventDefault(); // no middle-click autoscroll
+            const now = performance.now();
+            if (now - lastMiddle < 350) {
+              lastMiddle = -Infinity;
+              mode = null;
+              nav.onFit();
+            } else {
+              lastMiddle = now;
+              mode = e.shiftKey ? "orbit" : "pan"; // Fusion: middle pans, Shift + middle orbits
+            }
+          } else if (e.button === 2) {
+            mode = "pan";
+          } else if (e.button === 0) {
+            mode = e.shiftKey || e.metaKey || e.ctrlKey ? "pan" : "orbit";
+          }
+          nav.orbiting = mode === "orbit";
+        });
+
+        dom.addEventListener("pointermove", (e) => {
+          const p = pointers.get(e.pointerId);
+          if (!p || !mode) return;
+          if (mode === "pinch") {
+            if (pointers.size < 2) return;
+            const [a, b] = pointers.values();
+            const mx0 = (a.x + b.x) / 2, my0 = (a.y + b.y) / 2, d0 = Math.hypot(a.x - b.x, a.y - b.y);
+            p.x = e.clientX; p.y = e.clientY;
+            const mx1 = (a.x + b.x) / 2, my1 = (a.y + b.y) / 2, d1 = Math.hypot(a.x - b.x, a.y - b.y);
+            nav.pan(mx1 - mx0, my1 - my0);
+            if (d0 > 0 && d1 > 0) nav.zoomAt(mx1, my1, d0 / d1);
+            return;
+          }
+          const dx = e.clientX - p.x, dy = e.clientY - p.y;
+          p.x = e.clientX; p.y = e.clientY;
+          if (mode === "orbit") nav.orbit(dx, dy);
+          else if (mode === "pan") nav.pan(dx, dy);
+        });
+
+        const release = (e) => {
+          if (!pointers.delete(e.pointerId)) return;
+          if (pointers.size === 0) mode = null;
+          else if (mode === "pinch") mode = "hold"; // lifting one finger shouldn't start an orbit
+          nav.orbiting = mode === "orbit";
+        };
+        dom.addEventListener("pointerup", release);
+        dom.addEventListener("pointercancel", release);
+
+        dom.addEventListener("wheel", (e) => {
+          e.preventDefault(); // also stops the two-finger swipe-back gesture mid-demo
+          nav.onStart();
+          let d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+          if (e.ctrlKey) d *= 10; // a trackpad pinch arrives as ctrl + wheel with small deltas
+          nav.zoomAt(e.clientX, e.clientY, Math.pow(0.95, -d * 0.01));
+        }, { passive: false });
+
+        dom.addEventListener("dblclick", (e) => {
+          const hit = pickPoint(rayAt(e.clientX, e.clientY));
+          if (hit) {
+            nav.pivot.copy(hit);
+            nav.onPivot(hit);
+          } else {
+            nav.onFit();
+          }
+        });
+
+        return nav;
+      }
+      // NAV-END
+
+      const nav = createNav(camera, renderer.domElement, {
+        // Parts first while you can see them through or over the shell, then
+        // the shell itself.
+        pickPoint: (rc) => {
+          const partsShow = !state.solid || state.xray;
+          const hit = partsShow
+            ? rc.intersectObjects(pickables, false)[0] || rc.intersectObjects(shellMeshes, false)[0]
+            : rc.intersectObjects([...shellMeshes, ...pickables], false)[0];
+          return hit ? hit.point.clone() : null;
+        },
+      });
+      nav.pivot.copy(CASE_CENTRE);
+      camera.lookAt(CASE_CENTRE);
+
+      // Fusion's green orbit-centre dot, shown while orbiting and briefly
+      // after you set a new centre.
+      const pivotDot = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 16, 12),
+        new THREE.MeshBasicMaterial({ color: 0x4ade80, depthTest: false, transparent: true }),
+      );
+      pivotDot.renderOrder = 999;
+      pivotDot.visible = false;
+      scene.add(pivotDot);
+      let pivotFlash = 0;
+
+      nav.onStart = () => { camAnim = null; };
+      nav.onFit = () => fitAll();
+      nav.onPivot = () => { pivotFlash = performance.now() + 900; };
 
       scene.add(new THREE.HemisphereLight(0xdfe3d8, 0x1b1d18, 1.5));
       const key = new THREE.DirectionalLight(0xffffff, 1.7);
@@ -870,7 +1091,7 @@
       const ray = new THREE.Raycaster();
       const ptr = new THREE.Vector2();
       let downAt = null;
-      renderer.domElement.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
+      renderer.domElement.addEventListener("pointerdown", (e) => { downAt = e.button === 0 ? [e.clientX, e.clientY] : null; });
       renderer.domElement.addEventListener("pointerup", (e) => {
         if (!downAt) return;
         const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
@@ -1168,9 +1389,8 @@
       const cubeQ = new THREE.Quaternion();
       function drawCube() {
         // orient the cube to match how the camera is looking at the case
-        cubeCam.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(8);
-        cubeCam.up.copy(camera.up);
-        cubeCam.lookAt(0, 0, 0);
+        cubeCam.quaternion.copy(camera.quaternion);
+        cubeCam.position.set(0, 0, 8).applyQuaternion(camera.quaternion);
         cubeCam.updateMatrixWorld();
         cubeMesh.quaternion.copy(cubeQ);
         cubeRenderer.render(cubeScene, cubeCam);
@@ -1207,12 +1427,16 @@
         if (camAnim) {
           camAnim.t = Math.min(1, camAnim.t + 0.08);
           const e = 1 - Math.pow(1 - camAnim.t, 3);
-          camera.position.lerpVectors(camAnim.from, camAnim.to, e);
-          controls.target.lerp(CASE_CENTRE, e * 0.5);
+          camera.position.lerpVectors(camAnim.fromP, camAnim.toP, e);
+          camera.quaternion.slerpQuaternions(camAnim.fromQ, camAnim.toQ, e);
           if (camAnim.t >= 1) camAnim = null;
         }
 
-        controls.update();
+        pivotDot.visible = nav.orbiting || performance.now() < pivotFlash;
+        if (pivotDot.visible) {
+          pivotDot.position.copy(nav.pivot);
+          pivotDot.scale.setScalar(camera.position.distanceTo(nav.pivot) * 0.006);
+        }
         renderer.render(scene, camera);
         drawCube();
 
